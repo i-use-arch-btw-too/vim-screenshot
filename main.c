@@ -19,6 +19,8 @@
 #define STEP_WORD  80
 #define STEP_END   40
 
+#define CURSOR_SIZE 7   /* must be odd: 5,7,9 */
+
 /* ================= globals ================= */
 
 static struct wl_display *display;
@@ -90,8 +92,16 @@ static void draw(void)
     for (int i = 0; i < width * height; i++)
         px[i] = 0x88000000;
 
-    /* cursor */
-    px[vy * width + vx] = 0xFFFFFFFF;
+    /* === big block cursor === */
+    int half = CURSOR_SIZE / 2;
+    for (int dy = -half; dy <= half; dy++) {
+        for (int dx = -half; dx <= half; dx++) {
+            int x = vx + dx;
+            int y = vy + dy;
+            if (x >= 0 && y >= 0 && x < width && y < height)
+                px[y * width + x] = 0xFFFFFFFF;
+        }
+    }
 
     /* selection rectangle */
     if (selecting) {
@@ -191,13 +201,13 @@ static void keyboard_key(void *d, struct wl_keyboard *k,
         xkb_state_key_get_one_sym(xkb_state, key + 8);
 
     switch (sym) {
-    /* small moves */
+    /* small */
     case XKB_KEY_h: move_cursor(-STEP_SMALL, 0); break;
     case XKB_KEY_l: move_cursor( STEP_SMALL, 0); break;
     case XKB_KEY_k: move_cursor(0, -STEP_SMALL); break;
     case XKB_KEY_j: move_cursor(0,  STEP_SMALL); break;
 
-    /* word-like moves */
+    /* fast */
     case XKB_KEY_w: move_cursor( STEP_WORD, 0); break;
     case XKB_KEY_b: move_cursor(-STEP_WORD, 0); break;
     case XKB_KEY_e: move_cursor( STEP_END, 0); break;
@@ -208,7 +218,7 @@ static void keyboard_key(void *d, struct wl_keyboard *k,
     case XKB_KEY_K: move_cursor(0, -height / 2); break;
     case XKB_KEY_J: move_cursor(0,  height / 2); break;
 
-    /* visual mode */
+    /* visual */
     case XKB_KEY_v:
         mode = MODE_VISUAL;
         selecting = true;
