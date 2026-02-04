@@ -9,10 +9,10 @@ SRC = main.c \
       wlr-layer-shell-unstable-v1-protocol.c \
       xdg-shell-protocol.c
 
-all: wayland-select
+all: vim-screenshot
 
-wayland-select: $(SRC)
+vim-screenshot: $(SRC)
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 clean:
-	rm -f wayland-select
+	rm -f vim-screenshot

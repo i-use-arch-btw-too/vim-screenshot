@@ -11,8 +11,13 @@
 
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
-
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
+
+/* ================= config ================= */
+
+#define STEP_SMALL 10
+#define STEP_WORD  80
+#define STEP_END   40
 
 /* ================= globals ================= */
 
@@ -115,22 +120,15 @@ static void draw(void)
     wl_buffer_add_listener(buf, &buffer_listener, NULL);
 
     wl_surface_attach(surface, buf, 0, 0);
-
-    /* 🔴 THIS WAS MISSING */
     wl_surface_damage_buffer(surface, 0, 0, width, height);
-
     wl_surface_commit(surface);
 
     wl_shm_pool_destroy(pool);
     munmap(px, size);
     close(fd);
-
-    fprintf(stderr,
-        "[draw] cursor=%d,%d selecting=%d\n",
-        vx, vy, selecting);
 }
 
-/* ================= cursor ================= */
+/* ================= movement ================= */
 
 static void move_cursor(int dx, int dy)
 {
@@ -174,15 +172,11 @@ static void keyboard_keymap(void *data, struct wl_keyboard *kbd,
 static void keyboard_enter(void *d, struct wl_keyboard *k,
                            uint32_t s, struct wl_surface *sf,
                            struct wl_array *keys)
-{
-    (void)d; (void)k; (void)s; (void)sf; (void)keys;
-}
+{ (void)d; (void)k; (void)s; (void)sf; (void)keys; }
 
 static void keyboard_leave(void *d, struct wl_keyboard *k,
                            uint32_t s, struct wl_surface *sf)
-{
-    (void)d; (void)k; (void)s; (void)sf;
-}
+{ (void)d; (void)k; (void)s; (void)sf; }
 
 static void keyboard_key(void *d, struct wl_keyboard *k,
                          uint32_t serial, uint32_t time,
@@ -197,11 +191,24 @@ static void keyboard_key(void *d, struct wl_keyboard *k,
         xkb_state_key_get_one_sym(xkb_state, key + 8);
 
     switch (sym) {
-    case XKB_KEY_h: move_cursor(-10, 0); break;
-    case XKB_KEY_l: move_cursor( 10, 0); break;
-    case XKB_KEY_k: move_cursor(0, -10); break;
-    case XKB_KEY_j: move_cursor(0,  10); break;
+    /* small moves */
+    case XKB_KEY_h: move_cursor(-STEP_SMALL, 0); break;
+    case XKB_KEY_l: move_cursor( STEP_SMALL, 0); break;
+    case XKB_KEY_k: move_cursor(0, -STEP_SMALL); break;
+    case XKB_KEY_j: move_cursor(0,  STEP_SMALL); break;
 
+    /* word-like moves */
+    case XKB_KEY_w: move_cursor( STEP_WORD, 0); break;
+    case XKB_KEY_b: move_cursor(-STEP_WORD, 0); break;
+    case XKB_KEY_e: move_cursor( STEP_END, 0); break;
+
+    /* big jumps */
+    case XKB_KEY_H: move_cursor(-width / 2, 0); break;
+    case XKB_KEY_L: move_cursor( width / 2, 0); break;
+    case XKB_KEY_K: move_cursor(0, -height / 2); break;
+    case XKB_KEY_J: move_cursor(0,  height / 2); break;
+
+    /* visual mode */
     case XKB_KEY_v:
         mode = MODE_VISUAL;
         selecting = true;
@@ -210,15 +217,20 @@ static void keyboard_key(void *d, struct wl_keyboard *k,
         draw();
         break;
 
-    case XKB_KEY_Return:
-        printf("%d,%d %dx%d\n",
-               ax < cx ? ax : cx,
-               ay < cy ? ay : cy,
-               abs(cx - ax),
-               abs(cy - ay));
+    /* confirm */
+    case XKB_KEY_Return: {
+        int x = ax < cx ? ax : cx;
+        int y = ay < cy ? ay : cy;
+        int w = abs(cx - ax);
+        int h = abs(cy - ay);
+        if (w == 0) w = 1;
+        if (h == 0) h = 1;
+        printf("%d,%d %dx%d\n", x, y, w, h);
         fflush(stdout);
         exit(0);
+    }
 
+    /* quit */
     case XKB_KEY_Escape:
     case XKB_KEY_q:
         exit(0);
@@ -242,9 +254,7 @@ static void keyboard_modifiers(void *d, struct wl_keyboard *k,
 
 static void keyboard_repeat_info(void *d, struct wl_keyboard *k,
                                  int32_t r, int32_t del)
-{
-    (void)d; (void)k; (void)r; (void)del;
-}
+{ (void)d; (void)k; (void)r; (void)del; }
 
 static const struct wl_keyboard_listener keyboard_listener = {
     .keymap = keyboard_keymap,
