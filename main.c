@@ -181,56 +181,56 @@ static void run_grim(int x, int y, int w, int h)
 
     pid_t pid = fork();
     if (pid == 0) {
-        execlp("grim", "grim",
-               "-g", geom,
-               "screenshot.png",
-               NULL);
-        _exit(1);
+      execl("/usr/bin/grim", "grim",
+          "-g", geom,
+          "/tmp/photo.png",
+          NULL);
+      _exit(1);
     }
 }
 
 /* ================= keyboard ================= */
 
 static void keyboard_keymap(void *data, struct wl_keyboard *kbd,
-                            uint32_t format, int fd, uint32_t size)
+    uint32_t format, int fd, uint32_t size)
 {
-    (void)data; (void)kbd; (void)format;
+  (void)data; (void)kbd; (void)format;
 
-    char *map = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+  char *map = mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
 
-    xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    xkb_keymap = xkb_keymap_new_from_string(
-        xkb_ctx, map,
-        XKB_KEYMAP_FORMAT_TEXT_V1,
-        XKB_KEYMAP_COMPILE_NO_FLAGS);
+  xkb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+  xkb_keymap = xkb_keymap_new_from_string(
+      xkb_ctx, map,
+      XKB_KEYMAP_FORMAT_TEXT_V1,
+      XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-    xkb_state = xkb_state_new(xkb_keymap);
+  xkb_state = xkb_state_new(xkb_keymap);
 
-    munmap(map, size);
-    close(fd);
+  munmap(map, size);
+  close(fd);
 }
 
 static void keyboard_enter(void *d, struct wl_keyboard *k,
-                           uint32_t s, struct wl_surface *sf,
-                           struct wl_array *keys)
+    uint32_t s, struct wl_surface *sf,
+    struct wl_array *keys)
 { (void)d; (void)k; (void)s; (void)sf; (void)keys; }
 
 static void keyboard_leave(void *d, struct wl_keyboard *k,
-                           uint32_t s, struct wl_surface *sf)
+    uint32_t s, struct wl_surface *sf)
 { (void)d; (void)k; (void)s; (void)sf; }
 
 static void keyboard_key(void *d, struct wl_keyboard *k,
-                         uint32_t serial, uint32_t time,
-                         uint32_t key, uint32_t state)
+    uint32_t serial, uint32_t time,
+    uint32_t key, uint32_t state)
 {
-    (void)d; (void)k; (void)serial; (void)time;
-    if (state != WL_KEYBOARD_KEY_STATE_PRESSED || !xkb_state)
-        return;
+  (void)d; (void)k; (void)serial; (void)time;
+  if (state != WL_KEYBOARD_KEY_STATE_PRESSED || !xkb_state)
+    return;
 
-    xkb_keysym_t sym =
-        xkb_state_key_get_one_sym(xkb_state, key + 8);
+  xkb_keysym_t sym =
+    xkb_state_key_get_one_sym(xkb_state, key + 8);
 
-    switch (sym) {
+  switch (sym) {
     case XKB_KEY_h: move_cursor(-STEP_SMALL, 0); break;
     case XKB_KEY_l: move_cursor( STEP_SMALL, 0); break;
     case XKB_KEY_k: move_cursor(0, -STEP_SMALL); break;
@@ -246,153 +246,153 @@ static void keyboard_key(void *d, struct wl_keyboard *k,
     case XKB_KEY_J: move_cursor(0,  height / 2); break;
 
     case XKB_KEY_v:
-        mode = MODE_VISUAL;
-        selecting = true;
-        ax = cx = vx;
-        ay = cy = vy;
-        draw();
-        break;
+                    mode = MODE_VISUAL;
+                    selecting = true;
+                    ax = cx = vx;
+                    ay = cy = vy;
+                    draw();
+                    break;
 
     case XKB_KEY_Return: {
-        int x = ax < cx ? ax : cx;
-        int y = ay < cy ? ay : cy;
-        int w = abs(cx - ax);
-        int h = abs(cy - ay);
-        if (w == 0) w = 1;
-        if (h == 0) h = 1;
-        run_grim(x, y, w, h);
-        exit(0);
-    }
+                           int x = ax < cx ? ax : cx;
+                           int y = ay < cy ? ay : cy;
+                           int w = abs(cx - ax);
+                           int h = abs(cy - ay);
+                           if (w == 0) w = 1;
+                           if (h == 0) h = 1;
+                           run_grim(x, y, w, h);
+                           exit(0);
+                         }
 
     case XKB_KEY_Escape:
     case XKB_KEY_q:
-        exit(0);
-    }
+                         exit(0);
+  }
 }
 
 static void keyboard_modifiers(void *d, struct wl_keyboard *k,
-                               uint32_t s,
-                               uint32_t dep,
-                               uint32_t lat,
-                               uint32_t lock,
-                               uint32_t grp)
+    uint32_t s,
+    uint32_t dep,
+    uint32_t lat,
+    uint32_t lock,
+    uint32_t grp)
 {
-    (void)d; (void)k; (void)s;
-    if (xkb_state)
-        xkb_state_update_mask(
-            xkb_state,
-            dep, lat, lock,
-            0, 0, grp);
+  (void)d; (void)k; (void)s;
+  if (xkb_state)
+    xkb_state_update_mask(
+        xkb_state,
+        dep, lat, lock,
+        0, 0, grp);
 }
 
 static void keyboard_repeat_info(void *d, struct wl_keyboard *k,
-                                 int32_t r, int32_t del)
+    int32_t r, int32_t del)
 { (void)d; (void)k; (void)r; (void)del; }
 
 static const struct wl_keyboard_listener keyboard_listener = {
-    .keymap = keyboard_keymap,
-    .enter = keyboard_enter,
-    .leave = keyboard_leave,
-    .key = keyboard_key,
-    .modifiers = keyboard_modifiers,
-    .repeat_info = keyboard_repeat_info,
+  .keymap = keyboard_keymap,
+  .enter = keyboard_enter,
+  .leave = keyboard_leave,
+  .key = keyboard_key,
+  .modifiers = keyboard_modifiers,
+  .repeat_info = keyboard_repeat_info,
 };
 
 /* ================= layer ================= */
 
 static void layer_configure(void *d,
-                            struct zwlr_layer_surface_v1 *s,
-                            uint32_t serial,
-                            uint32_t w,
-                            uint32_t h)
+    struct zwlr_layer_surface_v1 *s,
+    uint32_t serial,
+    uint32_t w,
+    uint32_t h)
 {
-    (void)d;
-    zwlr_layer_surface_v1_ack_configure(s, serial);
+  (void)d;
+  zwlr_layer_surface_v1_ack_configure(s, serial);
 
-    width = w;
-    height = h;
-    vx = width / 2;
-    vy = height / 2;
-    cx = vx;
-    cy = vy;
-    selecting = false;
-    mode = MODE_NORMAL;
-    draw();
+  width = w;
+  height = h;
+  vx = width / 2;
+  vy = height / 2;
+  cx = vx;
+  cy = vy;
+  selecting = false;
+  mode = MODE_NORMAL;
+  draw();
 }
 
 static const struct zwlr_layer_surface_v1_listener layer_listener = {
-    .configure = layer_configure,
+  .configure = layer_configure,
 };
 
 /* ================= registry ================= */
 
 static void registry_add(void *d, struct wl_registry *r,
-                         uint32_t name, const char *iface,
-                         uint32_t v)
+    uint32_t name, const char *iface,
+    uint32_t v)
 {
-    (void)d; (void)v;
+  (void)d; (void)v;
 
-    if (!strcmp(iface, wl_compositor_interface.name))
-        compositor = wl_registry_bind(r, name,
-            &wl_compositor_interface, 4);
-    else if (!strcmp(iface, wl_shm_interface.name))
-        shm = wl_registry_bind(r, name,
-            &wl_shm_interface, 1);
-    else if (!strcmp(iface, wl_seat_interface.name)) {
-        seat = wl_registry_bind(r, name,
-            &wl_seat_interface, 1);
-        keyboard = wl_seat_get_keyboard(seat);
-        wl_keyboard_add_listener(
-            keyboard, &keyboard_listener, NULL);
-    }
-    else if (!strcmp(iface,
+  if (!strcmp(iface, wl_compositor_interface.name))
+    compositor = wl_registry_bind(r, name,
+        &wl_compositor_interface, 4);
+  else if (!strcmp(iface, wl_shm_interface.name))
+    shm = wl_registry_bind(r, name,
+        &wl_shm_interface, 1);
+  else if (!strcmp(iface, wl_seat_interface.name)) {
+    seat = wl_registry_bind(r, name,
+        &wl_seat_interface, 1);
+    keyboard = wl_seat_get_keyboard(seat);
+    wl_keyboard_add_listener(
+        keyboard, &keyboard_listener, NULL);
+  }
+  else if (!strcmp(iface,
         zwlr_layer_shell_v1_interface.name))
-        layer_shell = wl_registry_bind(
-            r, name,
-            &zwlr_layer_shell_v1_interface, 4);
+    layer_shell = wl_registry_bind(
+        r, name,
+        &zwlr_layer_shell_v1_interface, 4);
 }
 
 static const struct wl_registry_listener registry_listener = {
-    .global = registry_add,
+  .global = registry_add,
 };
 
 /* ================= main ================= */
 
 int main(void)
 {
-    display = wl_display_connect(NULL);
-    struct wl_registry *reg =
-        wl_display_get_registry(display);
+  display = wl_display_connect(NULL);
+  struct wl_registry *reg =
+    wl_display_get_registry(display);
 
-    wl_registry_add_listener(reg,
-        &registry_listener, NULL);
-    wl_display_roundtrip(display);
+  wl_registry_add_listener(reg,
+      &registry_listener, NULL);
+  wl_display_roundtrip(display);
 
-    surface = wl_compositor_create_surface(compositor);
-    layer_surface =
-        zwlr_layer_shell_v1_get_layer_surface(
-            layer_shell,
-            surface,
-            NULL,
-            ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY,
-            "vim-screenshot");
+  surface = wl_compositor_create_surface(compositor);
+  layer_surface =
+    zwlr_layer_shell_v1_get_layer_surface(
+        layer_shell,
+        surface,
+        NULL,
+        ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY,
+        "vim-screenshot");
 
-    zwlr_layer_surface_v1_set_anchor(
-        layer_surface,
-        ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
-        ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
-        ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
-        ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
+  zwlr_layer_surface_v1_set_anchor(
+      layer_surface,
+      ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP |
+      ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM |
+      ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT |
+      ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT);
 
-    zwlr_layer_surface_v1_set_exclusive_zone(layer_surface, -1);
-    zwlr_layer_surface_v1_set_keyboard_interactivity(
-        layer_surface,
-        ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE);
+  zwlr_layer_surface_v1_set_exclusive_zone(layer_surface, -1);
+  zwlr_layer_surface_v1_set_keyboard_interactivity(
+      layer_surface,
+      ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE);
 
-    zwlr_layer_surface_v1_add_listener(
-        layer_surface, &layer_listener, NULL);
+  zwlr_layer_surface_v1_add_listener(
+      layer_surface, &layer_listener, NULL);
 
-    wl_surface_commit(surface);
+  wl_surface_commit(surface);
 
-    while (wl_display_dispatch(display) != -1) {}
+  while (wl_display_dispatch(display) != -1) {}
 }
