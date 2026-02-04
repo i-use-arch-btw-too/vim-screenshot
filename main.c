@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <stdbool.h>
+#include <sys/wait.h>
 
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
@@ -18,7 +19,7 @@
 #define STEP_SMALL 10
 #define STEP_WORD  80
 #define STEP_END   40
-#define CURSOR_SIZE 7   /* odd number: 5,7,9 */
+#define CURSOR_SIZE 7   /* odd number */
 
 /* ================= globals ================= */
 
@@ -73,6 +74,8 @@ static int create_shm_file(size_t size)
     return fd;
 }
 
+/* ================= rendering ================= */
+
 static void draw(void)
 {
     if (width == 0 || height == 0) return;
@@ -87,7 +90,7 @@ static void draw(void)
                         PROT_READ | PROT_WRITE,
                         MAP_SHARED, fd, 0);
 
-    /* dim entire screen */
+    /* dim whole screen */
     for (int i = 0; i < width * height; i++)
         px[i] = 0x88000000;
 
@@ -98,26 +101,23 @@ static void draw(void)
         int miny = ay < cy ? ay : cy;
         int maxy = ay > cy ? ay : cy;
 
-        for (int y = miny; y <= maxy; y++) {
-            for (int x = minx; x <= maxx; x++) {
+        for (int y = miny; y <= maxy; y++)
+            for (int x = minx; x <= maxx; x++)
                 if (x >= 0 && y >= 0 && x < width && y < height)
-                    px[y * width + x] = 0x00000000; /* clear */
-            }
-        }
+                    px[y * width + x] = 0x00000000;
     }
 
-    /* draw block cursor */
+    /* cursor */
     int half = CURSOR_SIZE / 2;
-    for (int dy = -half; dy <= half; dy++) {
+    for (int dy = -half; dy <= half; dy++)
         for (int dx = -half; dx <= half; dx++) {
             int x = vx + dx;
             int y = vy + dy;
             if (x >= 0 && y >= 0 && x < width && y < height)
                 px[y * width + x] = 0xFFFFFFFF;
         }
-    }
 
-    /* draw rectangle border */
+    /* rectangle border */
     if (selecting) {
         int minx = ax < cx ? ax : cx;
         int maxx = ax > cx ? ax : cx;
@@ -172,6 +172,23 @@ static void move_cursor(int dx, int dy)
     draw();
 }
 
+/* ================= grim ================= */
+
+static void run_grim(int x, int y, int w, int h)
+{
+    char geom[64];
+    snprintf(geom, sizeof(geom), "%d,%d %dx%d", x, y, w, h);
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        execlp("grim", "grim",
+               "-g", geom,
+               "screenshot.png",
+               NULL);
+        _exit(1);
+    }
+}
+
 /* ================= keyboard ================= */
 
 static void keyboard_keymap(void *data, struct wl_keyboard *kbd,
@@ -207,9 +224,8 @@ static void keyboard_key(void *d, struct wl_keyboard *k,
                          uint32_t key, uint32_t state)
 {
     (void)d; (void)k; (void)serial; (void)time;
-
-    if (state != WL_KEYBOARD_KEY_STATE_PRESSED) return;
-    if (!xkb_state) return;
+    if (state != WL_KEYBOARD_KEY_STATE_PRESSED || !xkb_state)
+        return;
 
     xkb_keysym_t sym =
         xkb_state_key_get_one_sym(xkb_state, key + 8);
@@ -244,8 +260,7 @@ static void keyboard_key(void *d, struct wl_keyboard *k,
         int h = abs(cy - ay);
         if (w == 0) w = 1;
         if (h == 0) h = 1;
-        printf("%d,%d %dx%d\n", x, y, w, h);
-        fflush(stdout);
+        run_grim(x, y, w, h);
         exit(0);
     }
 
@@ -296,14 +311,12 @@ static void layer_configure(void *d,
 
     width = w;
     height = h;
-
     vx = width / 2;
     vy = height / 2;
     cx = vx;
     cy = vy;
     selecting = false;
     mode = MODE_NORMAL;
-
     draw();
 }
 
