@@ -1,4 +1,4 @@
 - [x] Make a cursor size big
-- Disable dim for selected area
+- [x] Disable dim for selected area
 - Make Keybind smooth (like hold key and it's trigger)
 - Use H,J,K,L to reduce size 
